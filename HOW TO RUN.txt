@@ -1,0 +1,158 @@
+HOW TO RUN
+
+This repository contains a complete Named Entity Recognition (NER) pipeline that includes:
+
+BERT fine-tuning for token classification (main model)
+
+BiLSTM + CRF baseline model (for comparison)
+
+An inference script for testing the trained BERT model on custom input text
+
+0) Requirements
+
+Python 3.9+ (Python 3.10 or 3.11 recommended)
+
+(Recommended) NVIDIA GPU with CUDA for faster BERT training
+(CPU-only execution is supported but significantly slower)
+
+Create a virtual environment
+
+Windows (PowerShell):
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+
+Linux / macOS:
+python -m venv .venv
+source .venv/bin/activate
+
+Install dependencies
+
+pip install --upgrade pip
+pip install torch transformers datasets evaluate seqeval scikit-learn pandas numpy
+
+If you want GPU support, make sure to install the CUDA-enabled PyTorch version from the official PyTorch website.
+
+1) Dataset setup
+
+Place the dataset CSV file at the following path (this path is expected by the scripts):
+
+data/NER dataset.csv
+
+Notes:
+
+The dataset is read using encoding="latin1".
+
+The CSV file is expected to contain columns such as:
+Sentence #, Word, Tag.
+
+2) (Optional) Quick sanity checks
+
+The following scripts can be used to inspect and validate the dataset structure and token–label alignment.
+They are optional and not required for training or inference.
+
+python 02_read_csv.py
+python 03_tokenize_and_align.py
+
+3) Prepare the Hugging Face dataset artifacts (mappings and splits)
+
+This step:
+
+builds the train / validation split
+
+creates label2id and id2label mappings
+
+tokenizes text and aligns labels to WordPiece tokens
+
+produces the final dataset fields: input_ids, attention_mask, labels
+
+Run:
+python 04_prepare_hf_dataset.py
+
+Expected outputs:
+outputs/label2id.txt
+outputs/id2label.txt
+
+4) Train / fine-tune BERT for NER
+
+This is the main training step.
+
+Run:
+python 05_train_bert_ner.py
+
+Expected outputs (important files and directories):
+
+outputs/bert_ner/final/ – trained model and tokenizer
+
+outputs/bert_ner/final_metrics.json – final validation metrics
+
+outputs/bert_ner/checkpoint-* – intermediate checkpoints (optional)
+
+If you encounter CUDA out-of-memory (OOM) errors:
+
+open 05_train_bert_ner.py and reduce:
+
+BATCH_SIZE (for example, from 16 to 8 or 4)
+
+optionally increase GRAD_ACCUM to keep a similar effective batch size
+
+5) Run inference (test on your own text)
+
+After training completes and the directory
+outputs/bert_ner/final/ exists, run:
+
+python 06_infer.py
+
+You will be prompted to enter a sentence.
+Type a sentence and press Enter.
+
+Output includes:
+
+token-level predictions (token, predicted label, confidence score)
+
+extracted named entities (BIO tags merged into entity spans)
+
+6) Train the BiLSTM + CRF baseline (optional)
+
+This step trains the classical baseline model for comparison.
+
+Run:
+python 07_train_bilstm_crf.py
+
+Expected outputs:
+
+outputs/best.pt – best model checkpoint (by validation F1-score)
+
+outputs/word2id.json
+
+outputs/label2id.json
+
+outputs/id2label.json
+
+outputs/train_config.json
+
+7) Typical end-to-end run order
+
+To run the full pipeline from scratch:
+
+python 04_prepare_hf_dataset.py
+python 05_train_bert_ner.py
+python 06_infer.py
+
+Optionally, to train the baseline model:
+python 07_train_bilstm_crf.py
+
+Troubleshooting
+
+File not found: data/NER dataset.csv
+Make sure the dataset is located exactly at:
+data/NER dataset.csv
+
+CUDA out of memory
+Lower BATCH_SIZE in 05_train_bert_ner.py.
+
+Inference fails because the model directory is missing
+Run the training step first:
+python 05_train_bert_ner.py
+
+Then verify that the following directory exists:
+outputs/bert_ner/final/
